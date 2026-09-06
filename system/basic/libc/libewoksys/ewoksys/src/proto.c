@@ -115,7 +115,7 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
     return &_proto_factor;
 }
 
-inline static proto_factor_t* proto_add_int(proto_t* proto, uint32_t v) {
+inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
     /* 'int' factors always travel as a fixed 32-bit word so the wire format is
      * identical on 32-bit and 64-bit targets. Address/handle values must use
      * the addr factor (adda/proto_read_addr) which keeps ewokos_addr_t width. */
@@ -246,9 +246,9 @@ inline int32_t proto_read_proto(proto_t* proto, proto_t* to) {
     return 0;
 }
 
-inline uint32_t proto_read_int(proto_t* proto) {
+inline int32_t proto_read_int(proto_t* proto) {
     void *p = proto_read(proto, NULL);
-    uint32_t v = 0;
+    int32_t v = 0;
     if(p == NULL)
         return 0;
     memcpy(&v, p, sizeof(v));
