@@ -99,21 +99,23 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
     }
 
     for (int fd = 0; fd < nfds; ++fd) {
-        int fd_ready = 0;
-
+        /*
+         * POSIX: select() returns the total number of bits set across all
+         * three descriptor objects, so an fd ready for several conditions is
+         * counted once per set it ends up in (not once per fd).
+         */
         if (readfds != NULL && (fds[fd].revents & (POLLIN | POLLHUP)) != 0) {
             FD_SET(fd, readfds);
-            fd_ready = 1;
+            count++;
         }
         if (writefds != NULL && (fds[fd].revents & POLLOUT) != 0) {
             FD_SET(fd, writefds);
-            fd_ready = 1;
+            count++;
         }
         if (exceptfds != NULL && (fds[fd].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
             FD_SET(fd, exceptfds);
-            fd_ready = 1;
+            count++;
         }
-        count += fd_ready;
     }
 
     free(fds);
