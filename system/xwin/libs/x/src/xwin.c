@@ -173,20 +173,6 @@ int xwin_top(xwin_t* xwin) {
     return ret;
 }
 
-/*
-static int  x_get_win_rect(int xfd, int style, int state, grect_t* wsr, grect_t* win_space) {
-    proto_t in, out;
-    PF->init(&out);
-    PF->format(&in, "i,i,m", (ewokos_addr_t)style, (ewokos_addr_t)state, wsr, sizeof(grect_t));
-    int ret = vfs_fcntl(xfd, XWIN_CNTL_WORK_SPACE, &in, &out);
-    PF->clear(&in);
-    if(ret == 0) 
-        proto_read_to(&out, win_space, sizeof(grect_t));
-    PF->clear(&out);
-    return ret;
-}
-*/
-
 xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const char* title, int style) {
     if(w <= 0 || h <= 0)
         return NULL;

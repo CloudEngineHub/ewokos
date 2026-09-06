@@ -87,7 +87,7 @@ static int get_xwm_win_space(x_t* x, int style, int state, grect_t* rin, grect_t
 
     proto_t in, out;
     PF->init(&out);
-    PF->format(&in, "i,i,m", (ewokos_addr_t)style, (ewokos_addr_t)state, rin, sizeof(grect_t));
+    PF->format(&in, "i,i,m", style, state, rin, sizeof(grect_t));
 
     int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
     PF->clear(&in);

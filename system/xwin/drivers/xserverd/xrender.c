@@ -106,9 +106,9 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 
     proto_t in;
     PF->format(&in, "i,i,i,m",
-        (ewokos_addr_t)display->g_shm_id,
-        (ewokos_addr_t)display->g->w,
-        (ewokos_addr_t)display->g->h,
+        display->g_shm_id,
+        display->g->w,
+        display->g->h,
         win->xinfo, sizeof(xinfo_t));
 
     if(top_proc(x, win))
@@ -156,9 +156,9 @@ int draw_desktop(x_t* x, uint32_t display_index) {
 
     proto_t in;
     PF->format(&in, "i,i,i",
-        (ewokos_addr_t)display->g_shm_id,
-        (ewokos_addr_t)display->g->w,
-        (ewokos_addr_t)display->g->h);
+        display->g_shm_id,
+        display->g->w,
+        display->g->h);
 
     int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in);
     PF->clear(&in);
@@ -195,9 +195,9 @@ void draw_drag_frame(x_t* xp, uint32_t display_index) {
 
     proto_t in;
     PF->format(&in, "i,i,i,m",
-        (ewokos_addr_t)display->g_shm_id,
-        (ewokos_addr_t)display->g->w,
-        (ewokos_addr_t)display->g->h,
+        display->g_shm_id,
+        display->g->w,
+        display->g->h,
         &r, sizeof(grect_t));
 
     if(check_xwm(xp))

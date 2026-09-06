@@ -273,10 +273,10 @@ void proto_free(proto_t* proto) {
     free(proto);
 }
 
-const char* get_mem_size_desc(ewokos_addr_t size, char ret[]) {
-    if(size >= (ewokos_addr_t)(1024*1024)) {
+const char* get_mem_size_desc(uint32_t size, char ret[]) {
+    if(size >= (1024*1024)) {
         uint32_t m = (uint32_t)(size/(1024*1024));
-        if((size % (ewokos_addr_t)(1024*1024)) != 0)
+        if((size % (1024*1024)) != 0)
             m++;
         snprintf(ret, 31, "%uM", m);
     }
