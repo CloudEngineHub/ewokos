@@ -95,14 +95,15 @@ void ewok_freeaddrinfo_compat(struct addrinfo *res);
 #define EWOK_HTTPS_FAKE_URANDOM_FD (-0x7070)
 
 /*
- * TLS handshake diagnostics. Set EWOK_HTTPS_TLS_DEBUG to 0 to silence.
+ * TLS handshake diagnostics. Off by default; build with
+ * -DEWOK_HTTPS_TLS_DEBUG=1 to re-enable the dns/read/write/http_tx traces.
  * klog() lives in libewoksys, which this library already depends on at link
  * time (kernel_tic/proc_usleep in the glue below). It is forward-declared here
  * rather than including <ewoksys/klog.h> to avoid include-path coupling and to
  * stay clear of the open/read/close/select/getsockopt macro remaps above.
  */
 #ifndef EWOK_HTTPS_TLS_DEBUG
-#define EWOK_HTTPS_TLS_DEBUG 1
+#define EWOK_HTTPS_TLS_DEBUG 0
 #endif
 #if EWOK_HTTPS_TLS_DEBUG
 extern void klog(const char *format, ...);
