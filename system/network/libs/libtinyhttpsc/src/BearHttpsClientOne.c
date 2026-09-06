@@ -95261,7 +95261,21 @@ const unsigned char *BearHttpsResponse_read_body(BearHttpsResponse *self) {
         return NULL;
     }
 
-    self->body_size = self->body_readded_size;
+    /*
+     * body_readded_size is bumped by read_body_chunck_raw for EVERY recv, and
+     * in chunked mode that includes the framing bytes (the chunk-size digits
+     * and the CRLF delimiters), not just body payload, so it overcounts the
+     * real body length by the framing overhead. total_readded is the sum of
+     * what read_body_chunck actually wrote into self->body (payload only).
+     * Sizing the body with the inflated counter makes the caller
+     * (HttpsResponseReadBody -> loadURL) memcpy uninitialized bytes past the
+     * payload into the HTML buffer and report that inflated length, which
+     * litehtml then parses as markup -> bogus DOM nodes with corrupted
+     * child/parent pointers -> data abort in html_tag::find_adjacent_sibling.
+     * Terminate and size the body at the real payload length instead.
+     */
+    self->body[total_readded] = 0;
+    self->body_size = total_readded;
     self->body_completed_read = true;
     return self->body;
 }
@@ -95320,10 +95334,27 @@ int BearHttpsResponse_read_body_chunck_http1(BearHttpsResponse *self,unsigned ch
                 read_size = self->http1_reaming_to_read;
             }
 
-            long readded = BearHttpsResponse_read_body_chunck_raw(self, buffer, read_size);
+            /* The caller's buffer is full (remaning_to_read hit 0) while the
+             * current chunk still has bytes left. Return what we collected:
+             * http1_state / http1_reaming_to_read persist in self, so read_body
+             * will call us again to resume mid-chunk. Without this the loop keeps
+             * computing read_size=0 -> recv(0) -> br_sslio_read(0) -> 0 forever:
+             * an infinite CPU spin that never issues a real recv, hanging the
+             * whole fetch (netd sees no further SOCK_RECV, no tls_read). Also
+             * write at buffer+(size-remaning_to_read) so a second chunk consumed
+             * within the same call does not overwrite the first one. */
+            if(read_size <= 0){
+                return size - remaning_to_read;
+            }
+            long readded = BearHttpsResponse_read_body_chunck_raw(self, buffer + (size - remaning_to_read), read_size);
             if(readded < 0){
                 BearHttpsResponse_set_error(self,"error reading body chunk",BEARSSL_HTTPS_ERROR_READING_CHUNK);
                 return -1;  
+            }
+            if(readded == 0){
+                /* No progress (transport EOF / engine has no data right now):
+                 * return what we have instead of spinning on a zero-length read. */
+                return size - remaning_to_read;
             }
             remaning_to_read -= readded;
             self->http1_reaming_to_read -= readded;
