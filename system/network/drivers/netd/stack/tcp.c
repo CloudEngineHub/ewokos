@@ -976,6 +976,22 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             }
         }
         if (!acceptable) {
+            /*
+             * [diag] The ONLY silent drop path for an ESTABLISHED segment: an
+             * out-of-window / out-of-seq segment is ACKed and discarded here,
+             * before the seventh-step buffering and before the copy_len==0
+             * DROP log below. If the server's HTTP response lands here, our
+             * rcv.nxt or rcv.wnd has desynced from the peer -- the exact
+             * "response lost, bare FIN observed" signature that now fails every
+             * server (w3.org, google.cn, baidu.com) identically.
+             *   len>0 && seq <  rcv_nxt      => rcv.nxt overshot (dup-trim)
+             *   len>0 && seq >= rcv_nxt+wnd  => window collapsed
+             *   len==0                       => even a pure ACK is out of seq
+             */
+            klog("[netd] tcp REJECT: state=%u flags=0x%x seq=%u ack=%u len=%u rcv_nxt=%u rcv_wnd=%u\n",
+                 (unsigned)pcb->state, (unsigned)flags, (unsigned)seg->seq,
+                 (unsigned)seg->ack, (unsigned)len,
+                 (unsigned)pcb->rcv.nxt, (unsigned)pcb->rcv.wnd);
             if (!TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
                 tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
             }
@@ -1325,6 +1341,19 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 copy_len = pcb->rcv.wnd;
             }
 
+            /*
+             * [diag] Every accepted data segment, with rcv.nxt BEFORE this
+             * segment advances it and the length actually buffered. rcv.nxt
+             * must advance by exactly copy_len (+ any ooo-merge delta). A jump
+             * larger than the received payload is the overshoot that later
+             * makes the server's response look like a duplicate and get
+             * REJECTed at the acceptance check above.
+             */
+            klog("[netd] tcp DATA: seq=%u len=%u rcv_nxt=%u rcv_wnd=%u copy_off=%u copy_len=%u ooo=%u/%u\n",
+                 (unsigned)seg->seq, (unsigned)len, (unsigned)pcb->rcv.nxt,
+                 (unsigned)pcb->rcv.wnd, (unsigned)copy_off, (unsigned)copy_len,
+                 (unsigned)pcb->ooo_seq, (unsigned)pcb->ooo_len);
+
             if (copy_len > 0) {
                 memcpy(pcb->buf + (sizeof(pcb->buf) - pcb->rcv.wnd), data + copy_off, copy_len);
                 pcb->rcv.nxt += copy_len;
@@ -1418,8 +1447,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
          * real data arrived with/before the FIN (and tcp_receive must drain it
          * before reporting EOF), ==0 means a genuine bare FIN with no response.
          */
-        klog("[netd] tcp FIN: state=%u seg_len=%u seq=%u buffered=%u\n",
+        klog("[netd] tcp FIN: state=%u seg_len=%u seq=%u ack=%u snd_nxt=%u buffered=%u\n",
              (unsigned)pcb->state, (unsigned)len, (unsigned)seg->seq,
+             (unsigned)seg->ack, (unsigned)pcb->snd.nxt,
              (unsigned)(sizeof(pcb->buf) - pcb->rcv.wnd));
         pcb->rcv.nxt = seg->seq + 1;
         /*

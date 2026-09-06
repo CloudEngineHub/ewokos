@@ -94424,6 +94424,17 @@ static int private_BearHttps_connect_host(BearHttpsRequest *self, BearHttpsRespo
             Universal_in_addr addr;
             memcpy(&addr, he->h_addr_list[i], sizeof(Universal_in_addr));
             const char *ip_str = Universal_inet_ntoa(addr);
+            /*
+             * [diag] gethostbyname() is the ONLY active resolver here (the
+             * DNS-over-HTTPS fallback below is dead code and there is a
+             * "return -1" before it). If the system resolver hands back a
+             * poisoned/interceptor IP -- common for foreign domains behind a
+             * filtering network -- we would complete a TLS handshake with a
+             * middlebox and then get a bare FIN with no HTTP response, exactly
+             * the observed symptom. Log the resolved IP so it can be compared
+             * against a known-good resolution for the same hostname.
+             */
+            EWOK_TLS_LOG("[tinyhttps] dns: %s -> %s\n", host, ip_str ? ip_str : "(null)");
 
             if(ip_str != NULL) {
                 int sockfd = private_BearHttpsRequest_connect_ipv4_no_error_raise(ip_str, port, self->connection_timeout);
